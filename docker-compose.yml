@@ -1,0 +1,35 @@
+version: '3.8'
+services:
+  product_review_service:
+    build: .
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+    networks:
+      - product-network
+  
+  db:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: product_reviews
+    ports:
+      - "5432:5432"
+    networks:
+      - product-network
+  
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    networks:
+      - product-network
+
+networks:
+  product-network:
+    driver: bridge
