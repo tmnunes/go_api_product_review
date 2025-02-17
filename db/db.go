@@ -6,11 +6,13 @@ import (
 	"os"
 
 	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/postgres"
+	_ "github.com/jinzhu/gorm/dialects/postgres" // Import the PostgreSQL dialect for GORM
 )
 
+// DB represents the database connection
 var DB *gorm.DB
 
+// InitPostgres initializes the connection to the PostgreSQL database
 func InitPostgres() {
 	var err error
 	dsn := os.Getenv("POSTGRES_DSN")
@@ -22,6 +24,7 @@ func InitPostgres() {
 	DB.AutoMigrate(&models.Product{}, &models.Review{})
 }
 
+// GetDB returns the database instance
 func GetDB() *gorm.DB {
 	return DB
 }
