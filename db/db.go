@@ -26,5 +26,8 @@ func InitPostgres() {
 
 // GetDB returns the database instance
 func GetDB() *gorm.DB {
+	if DB == nil {
+		log.Fatal("Database not initialized")
+	}
 	return DB
 }
