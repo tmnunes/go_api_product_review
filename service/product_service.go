@@ -3,7 +3,6 @@ package service
 import (
 	"errors"
 	"go_api_product_review/cache"
-	"go_api_product_review/db"
 	"go_api_product_review/models"
 	"log"
 	"math"
@@ -13,17 +12,6 @@ import (
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres" // Import the PostgreSQL dialect for GORM
 )
-
-// CreateProduct creates a new product in the database.
-// It accepts a product object and saves it to the database.
-// Returns the created product or an error if the operation fails.
-// func CreateProduct(product *models.Product) (*models.Product, error) {
-// 	result := db.GetDB().Create(product)
-// 	if result.Error != nil {
-// 		return nil, result.Error
-// 	}
-// 	return product, nil
-// }
 
 // CreateProduct creates a new product in the database.
 // Pass a mock or real DB instance as a parameter for testing.
@@ -38,9 +26,11 @@ func CreateProduct(db *gorm.DB, product *models.Product) (*models.Product, error
 // UpdateProduct updates an existing product in the database by ID.
 // It accepts an ID and an updated product object.
 // Returns the updated product or an error if the operation fails.
-func UpdateProduct(id uint, updatedProduct *models.Product) (*models.Product, error) {
+func UpdateProduct(db *gorm.DB, id uint, updatedProduct *models.Product) (*models.Product, error) {
 	var product models.Product
-	result := db.GetDB().First(&product, id)
+
+	result := db.First(&product, id)
+
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -49,22 +39,22 @@ func UpdateProduct(id uint, updatedProduct *models.Product) (*models.Product, er
 	product.Name = updatedProduct.Name
 	product.Description = updatedProduct.Description
 	product.Price = updatedProduct.Price
-	db.GetDB().Save(&product)
+	db.Save(&product)
 	return &product, nil
 }
 
 // DeleteProduct deletes a product by its ID.
 // It accepts a product ID and removes the product from the database.
 // Returns an error if the deletion fails.
-func DeleteProduct(id uint) error {
-	result := db.GetDB().Delete(&models.Product{}, id)
+func DeleteProduct(db *gorm.DB, id uint) error {
+	result := db.Delete(&models.Product{}, id)
 	return result.Error
 }
 
 // GetProductByID retrieves a product's average rating by its ID.
 // First, it checks the cache for the average rating.
 // If not found, it calculates the rating, updates the cache, and returns the value.
-func GetProductByID(id uint) (float64, error) {
+func GetProductByID(db *gorm.DB, id uint) (float64, error) {
 	// Attempt to get the cached average rating
 	avgRating, err := GetCachedProductAverageRating(id)
 	if err != nil {
@@ -75,13 +65,13 @@ func GetProductByID(id uint) (float64, error) {
 	// If no cached value, calculate the average rating from reviews
 	if avgRating == 0 {
 		var product models.Product
-		result := db.GetDB().First(&product, id)
+		result := db.First(&product, id)
 		if result.Error != nil {
 			return 0, result.Error
 		}
 
 		// Recalculate and update the cached average rating
-		err := UpdateProductAverageRating(id)
+		err := UpdateProductAverageRating(db, id)
 		if err != nil {
 			return 0, err
 		}
@@ -103,9 +93,9 @@ func GetProductByID(id uint) (float64, error) {
 
 // ListProducts retrieves all products along with their reviews.
 // It returns a list of products or an error if the operation fails.
-func ListProducts() ([]models.Product, error) {
+func ListProducts(db *gorm.DB) ([]models.Product, error) {
 	var products []models.Product
-	result := db.GetDB().Preload("Reviews").Find(&products)
+	result := db.Preload("Reviews").Find(&products)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -120,11 +110,11 @@ func ListProducts() ([]models.Product, error) {
 
 // UpdateProductAverageRating recalculates the average rating of a product
 // based on its reviews and updates both the product record and the cache.
-func UpdateProductAverageRating(productID uint) error {
+func UpdateProductAverageRating(db *gorm.DB, productID uint) error {
 	var product models.Product
 	var reviews []models.Review
-	db.GetDB().First(&product, productID)
-	db.GetDB().Where("product_id = ?", productID).Find(&reviews)
+	db.First(&product, productID)
+	db.Where("product_id = ?", productID).Find(&reviews)
 
 	// Calculate the total rating from reviews
 	var totalRating int
@@ -143,21 +133,21 @@ func UpdateProductAverageRating(productID uint) error {
 
 	// Update the product record with the new average rating
 	product.AverageRating = averageRating
-	db.GetDB().Save(&product)
+	db.Save(&product)
 
 	return nil
 }
 
 // CreateReview creates a new review for a product and updates the product's average rating.
 // It accepts a review object, saves it to the database, and recalculates the product's average rating.
-func CreateReview(review *models.Review) (*models.Review, error) {
-	result := db.GetDB().Create(review)
+func CreateReview(db *gorm.DB, review *models.Review) (*models.Review, error) {
+	result := db.Create(review)
 	if result.Error != nil {
 		return nil, result.Error
 	}
 
 	// Update the product's average rating after the review is added
-	err := UpdateProductAverageRating(review.ProductID)
+	err := UpdateProductAverageRating(db, review.ProductID)
 	if err != nil {
 		return nil, err
 	}
@@ -168,9 +158,9 @@ func CreateReview(review *models.Review) (*models.Review, error) {
 // UpdateReview updates an existing review for a product by its ID.
 // It accepts a review ID and the updated review data, saves the updated review,
 // and recalculates the product's average rating.
-func UpdateReview(id uint, updatedReview *models.Review) (*models.Review, error) {
+func UpdateReview(db *gorm.DB, id uint, updatedReview *models.Review) (*models.Review, error) {
 	var review models.Review
-	result := db.GetDB().First(&review, id)
+	result := db.First(&review, id)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -181,10 +171,10 @@ func UpdateReview(id uint, updatedReview *models.Review) (*models.Review, error)
 	review.ReviewText = updatedReview.ReviewText
 	review.Rating = updatedReview.Rating
 
-	db.GetDB().Save(&review)
+	db.Save(&review)
 
 	// Recalculate the product's average rating after the review is updated
-	err := UpdateProductAverageRating(review.ProductID)
+	err := UpdateProductAverageRating(db, review.ProductID)
 	if err != nil {
 		return nil, err
 	}
@@ -194,18 +184,18 @@ func UpdateReview(id uint, updatedReview *models.Review) (*models.Review, error)
 
 // DeleteReview deletes an existing review by its ID and recalculates the product's average rating.
 // It accepts a review ID, deletes the review, and updates the product's rating accordingly.
-func DeleteReview(id uint) error {
+func DeleteReview(db *gorm.DB, id uint) error {
 	var review models.Review
-	result := db.GetDB().First(&review, id)
+	result := db.First(&review, id)
 	if result.Error != nil {
 		return result.Error
 	}
 
 	// Delete the review from the database
-	db.GetDB().Delete(&review)
+	db.Delete(&review)
 
 	// Recalculate the product's average rating after review deletion
-	err := UpdateProductAverageRating(review.ProductID)
+	err := UpdateProductAverageRating(db, review.ProductID)
 	if err != nil {
 		return err
 	}
