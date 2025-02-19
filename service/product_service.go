@@ -4,7 +4,6 @@ import (
 	"errors"
 	"go_api_product_review/cache"
 	"go_api_product_review/models"
-	"log"
 	"math"
 	"strconv"
 
@@ -60,7 +59,6 @@ func GetProductByID(db *gorm.DB, id uint) (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	log.Println(avgRating)
 
 	// If no cached value, calculate the average rating from reviews
 	if avgRating == 0 {
@@ -128,7 +126,6 @@ func UpdateProductAverageRating(db *gorm.DB, productID uint) error {
 	if totalRating != 0 && len(reviews) != 0 {
 		averageRating = float64(totalRating) / float64(len(reviews))
 	}
-	log.Println(averageRating)
 
 	// Cache the updated average rating
 	err := CacheProductAverageRating(productID, averageRating)
@@ -198,9 +195,6 @@ func DeleteReview(db *gorm.DB, id uint) error {
 
 	// Delete the review from the database
 	db.Delete(&review)
-
-	// Recalculate the product's average rating after review deletion
-	log.Println(review.ProductID)
 
 	err := UpdateProductAverageRating(db, review.ProductID)
 
