@@ -113,6 +113,7 @@ func ListProducts(db *gorm.DB) ([]models.Product, error) {
 func UpdateProductAverageRating(db *gorm.DB, productID uint) error {
 	var product models.Product
 	var reviews []models.Review
+
 	db.First(&product, productID)
 	db.Where("product_id = ?", productID).Find(&reviews)
 
@@ -122,8 +123,12 @@ func UpdateProductAverageRating(db *gorm.DB, productID uint) error {
 		totalRating += review.Rating
 	}
 
+	averageRating := 0.0
 	// Calculate the average rating
-	averageRating := float64(totalRating) / float64(len(reviews))
+	if totalRating != 0 && len(reviews) != 0 {
+		averageRating = float64(totalRating) / float64(len(reviews))
+	}
+	log.Println(averageRating)
 
 	// Cache the updated average rating
 	err := CacheProductAverageRating(productID, averageRating)
@@ -195,7 +200,10 @@ func DeleteReview(db *gorm.DB, id uint) error {
 	db.Delete(&review)
 
 	// Recalculate the product's average rating after review deletion
+	log.Println(review.ProductID)
+
 	err := UpdateProductAverageRating(db, review.ProductID)
+
 	if err != nil {
 		return err
 	}
@@ -224,6 +232,5 @@ func GetCachedProductAverageRating(productID uint) (float64, error) {
 	}
 
 	// Convert cached rating to float64
-	log.Println("Is CACHE:" + cachedRating)
 	return strconv.ParseFloat(cachedRating, 64)
 }
