@@ -26,7 +26,7 @@ func main() {
 	db.InitPostgres()
 
 	// Initialize Redis cache
-	cache.InitRedis()
+	cache.InitRedis(nil)
 
 	// Create Gin router
 	router := gin.Default()
