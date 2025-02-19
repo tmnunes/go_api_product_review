@@ -1,7 +1,7 @@
 package api
 
 import (
-	"go_api_product_review/db" // Import the db package where your real DB is defined
+	"go_api_product_review/db"
 	"go_api_product_review/models"
 	"go_api_product_review/service"
 	"net/http"
@@ -39,7 +39,7 @@ func RegisterProductRoutes(router *gin.Engine) {
 // @Produce json
 // @Param product body models.Product true "Product details"
 // @Success 201 {object} models.Product "Successfully created product"
-// @Failure 400 {object} models.ErrorResponse "Bad request"
+// @Failure 400 {object} models.ErrorResponse "Invalid product data"
 // @Failure 500 {object} models.ErrorResponse "Internal server error"
 // @Router /products [post]
 func CreateProduct(c *gin.Context) {
@@ -52,8 +52,7 @@ func CreateProduct(c *gin.Context) {
 		return
 	}
 
-	// Pass the actual db (or mock db in tests) to the service function
-	createdProduct, err := service.CreateProduct(db.GetDB(), &product) // Pass db.GetDB() here
+	createdProduct, err := service.CreateProduct(db.GetDB(), &product)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Message: "Failed to create product",
@@ -74,7 +73,7 @@ func CreateProduct(c *gin.Context) {
 // @Failure 500 {object} models.ErrorResponse "Internal server error"
 // @Router /products [get]
 func ListProducts(c *gin.Context) {
-	products, err := service.ListProducts()
+	products, err := service.ListProducts(db.GetDB())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Message: "Failed to list products",
@@ -92,25 +91,22 @@ func ListProducts(c *gin.Context) {
 // @Produce json
 // @Param id path int true "Product ID"
 // @Success 200 {object} models.Product "Product found"
-// @Failure 400 {object} models.ErrorResponse "Invalid ID"
+// @Failure 400 {object} models.ErrorResponse "Invalid product id"
 // @Failure 500 {object} models.ErrorResponse "Failed to retrieve product"
 // @Router /products/{id} [get]
 func GetProductByID(c *gin.Context) {
-	// Get the product ID from URL parameters and convert it to uint
 	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr) // Convert the string to an integer
+	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Message: "Invalid product ID",
 			Details: err.Error(),
 		})
 		return
 	}
-	// Convert the integer to uint
-	productID := uint(id)
 
-	// Call the service to get the product by ID
-	product, err := service.GetProductByID(productID)
+	productID := uint(id)
+	product, err := service.GetProductByID(db.GetDB(), productID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Message: "Failed to get product",
@@ -119,7 +115,6 @@ func GetProductByID(c *gin.Context) {
 		return
 	}
 
-	// Respond with the product
 	c.JSON(http.StatusOK, product)
 }
 
@@ -133,24 +128,21 @@ func GetProductByID(c *gin.Context) {
 // @Param product body models.Product true "Updated product details"
 // @Success 200 {object} models.Product "Updated product"
 // @Failure 400 {object} models.ErrorResponse "Invalid product data"
+// @Failure 400 {object} models.ErrorResponse "Invalid product ID"
 // @Failure 500 {object} models.ErrorResponse "Failed to update product"
 // @Router /products/{id} [put]
 func UpdateProduct(c *gin.Context) {
-	// Get the product ID from URL parameters and convert to uint
 	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr) // Convert the string to an integer
+	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Message: "Invalid product ID",
 			Details: err.Error(),
 		})
 		return
 	}
 
-	// Convert the integer to uint
 	productID := uint(id)
-
-	// Bind the request body to a product model
 	var product models.Product
 	if err := c.ShouldBindJSON(&product); err != nil {
 		c.JSON(http.StatusBadRequest, models.ErrorResponse{
@@ -159,8 +151,8 @@ func UpdateProduct(c *gin.Context) {
 		})
 		return
 	}
-	// Call the service layer to update the product
-	updatedProduct, err := service.UpdateProduct(productID, &product)
+
+	updatedProduct, err := service.UpdateProduct(db.GetDB(), productID, &product)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Message: "Failed to update product",
@@ -169,7 +161,6 @@ func UpdateProduct(c *gin.Context) {
 		return
 	}
 
-	// Respond with the updated product
 	c.JSON(http.StatusOK, updatedProduct)
 }
 
@@ -183,21 +174,17 @@ func UpdateProduct(c *gin.Context) {
 // @Failure 500 {object} models.ErrorResponse "Failed to delete product"
 // @Router /products/{id} [delete]
 func DeleteProduct(c *gin.Context) {
-	// Get the product ID from URL parameters and convert it to uint
 	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr) // Convert the string to an integer
+	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Message: "Invalid product ID",
 			Details: err.Error(),
 		})
 		return
 	}
-	// Convert the integer to uint
 	productID := uint(id)
-
-	// Call the service to delete the product by ID
-	err = service.DeleteProduct(productID)
+	err = service.DeleteProduct(db.GetDB(), productID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Message: "Failed to delete product",
@@ -205,7 +192,6 @@ func DeleteProduct(c *gin.Context) {
 		})
 		return
 	}
-	// Respond with a success message
 	c.JSON(http.StatusNoContent, nil)
 }
 
@@ -244,7 +230,7 @@ func CreateReview(c *gin.Context) {
 		return
 	}
 
-	createdReview, err := service.CreateReview(&review)
+	createdReview, err := service.CreateReview(db.GetDB(), &review)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Message: "Failed creating review",
@@ -265,14 +251,15 @@ func CreateReview(c *gin.Context) {
 // @Param id path int true "Review ID"
 // @Param review body models.Review true "Updated review details"
 // @Success 200 {object} models.Review "Updated review"
-// @Failure 400 {object} models.ErrorResponse "Invalid review data"
+// @Failure 400 {object} models.ErrorResponse "Invalid review ID"
+// @Failure 400 {object} models.ErrorResponse "Invalid review Data"
 // @Failure 500 {object} models.ErrorResponse "Failed to update review"
 // @Router /reviews/{id} [put]
 func UpdateReview(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Message: "Invalid review ID",
 			Details: err.Error(),
 		})
@@ -281,11 +268,14 @@ func UpdateReview(c *gin.Context) {
 
 	var review models.Review
 	if err := c.ShouldBindJSON(&review); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Message: "Invalid review data",
+			Details: err.Error(),
+		})
 		return
 	}
 
-	updatedReview, err := service.UpdateReview(uint(id), &review)
+	updatedReview, err := service.UpdateReview(db.GetDB(), uint(id), &review)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Message: "Failed to update review",
@@ -310,14 +300,14 @@ func DeleteReview(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Message: "Invalid review ID",
 			Details: err.Error(),
 		})
 		return
 	}
 
-	err = service.DeleteReview(uint(id))
+	err = service.DeleteReview(db.GetDB(), uint(id))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Message: "Failed to delete review",
