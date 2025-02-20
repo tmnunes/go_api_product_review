@@ -49,6 +49,12 @@ func UpdateProduct(db *gorm.DB, id uint, updatedProduct *models.Product) (*model
 // Returns an error if the deletion fails.
 func DeleteProduct(db *gorm.DB, id uint) error {
 	result := db.Delete(&models.Product{}, id)
+	key := "product:" + strconv.Itoa(int(id)) + ":average_rating"
+	err := cache.Rdb.Del(cache.Ctx, key).Err()
+	if err != nil {
+		return err
+	}
+
 	return result.Error
 }
 
