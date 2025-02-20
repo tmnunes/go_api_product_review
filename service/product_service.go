@@ -6,6 +6,7 @@ import (
 	"go_api_product_review/models"
 	"math"
 	"strconv"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/jinzhu/gorm"
@@ -209,7 +210,7 @@ func DeleteReview(db *gorm.DB, id uint) error {
 // It stores the average rating under a unique key based on the product ID.
 func CacheProductAverageRating(productID uint, rating float64) error {
 	key := "product:" + strconv.Itoa(int(productID)) + ":average_rating"
-	err := cache.Rdb.Set(cache.Ctx, key, rating, 0).Err()
+	err := cache.Rdb.Set(cache.Ctx, key, rating, 10*time.Minute).Err()
 	return err
 }
 

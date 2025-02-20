@@ -230,6 +230,15 @@ func CreateReview(c *gin.Context) {
 		return
 	}
 
+	// Validate using the model's method
+	if err := review.Validate(); err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Message: "Invalid review data",
+			Details: err.Error(),
+		})
+		return
+	}
+
 	createdReview, err := service.CreateReview(db.GetDB(), &review)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{

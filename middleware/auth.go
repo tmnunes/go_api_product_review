@@ -20,7 +20,6 @@ func AuthMiddleware(c *gin.Context) {
 
 	// Retrieve the token from the Authorization header
 	tokenString := c.GetHeader("Authorization")
-
 	// Skip authentication for the Swagger documentation endpoint
 	if c.FullPath() == "/swagger/*any" {
 		c.Next() // Proceed with the next handler
@@ -31,7 +30,7 @@ func AuthMiddleware(c *gin.Context) {
 	if tokenString == "" {
 		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
 			Message: "No token provided",
-			Details: err.Error(),
+			Details: "Authorization header is missing",
 		})
 		c.Abort()
 		return
@@ -44,7 +43,7 @@ func AuthMiddleware(c *gin.Context) {
 		// Return an error if the token format is invalid
 		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
 			Message: "Invalid token format",
-			Details: err.Error(),
+			Details: "Bearer is the accepted format",
 		})
 		c.Abort()
 		return
@@ -54,7 +53,7 @@ func AuthMiddleware(c *gin.Context) {
 	if len(tokenString) == 0 {
 		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
 			Message: "Token is empty",
-			Details: err.Error(),
+			Details: "Token is empty",
 		})
 		c.Abort()
 		return
@@ -66,7 +65,7 @@ func AuthMiddleware(c *gin.Context) {
 		// Return an error if the secret token is missing
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Message: "SECRET_KEY environment variable is missing",
-			Details: err.Error(),
+			Details: "Secret not defined",
 		})
 		c.Abort()
 		return
@@ -76,7 +75,7 @@ func AuthMiddleware(c *gin.Context) {
 	if tokenString != secretToken {
 		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
 			Message: "Invalid token",
-			Details: err.Error(),
+			Details: "Invalid token provided",
 		})
 		c.Abort()
 		return

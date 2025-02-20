@@ -1,0 +1,314 @@
+definitions:
+  models.ErrorResponse:
+    description: Standard error response format for all API errors
+    properties:
+      details:
+        description: |-
+          Details contains additional information (optional)
+          @example "The product ID provided was not an integer."
+        type: string
+      message:
+        description: |-
+          Message contains a human-readable error message
+          @example "Invalid product ID"
+        type: string
+    type: object
+  models.Product:
+    description: Represents a product in the store or catalog
+    properties:
+      average_rating:
+        description: |-
+          Average rating of the product based on reviews
+          @example 4.5
+        type: number
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      description:
+        description: |-
+          Description of the product
+          @example "Bananas from Argentina"
+        type: string
+      id:
+        type: integer
+      name:
+        description: |-
+          Name of the product
+          @example "Bananas"
+        type: string
+      price:
+        description: |-
+          Price of the product
+          @example 20.00
+        type: number
+      reviews:
+        description: |-
+          Reviews associated with this product
+          @example []Review
+        items:
+          $ref: '#/definitions/models.Review'
+        type: array
+      updated_at:
+        type: string
+    type: object
+  models.Review:
+    description: Represents a review for a specific product, including the reviewer's
+      name, review text, and rating.
+    properties:
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      first_name:
+        description: |-
+          First name of the reviewer
+          @example "Miguel"
+        type: string
+      id:
+        type: integer
+      last_name:
+        description: |-
+          Last name of the reviewer
+          @example "Filip"
+        type: string
+      product_id:
+        description: |-
+          ProductID is the foreign key that links to the product being reviewed
+          @example 999
+        type: integer
+      rating:
+        description: |-
+          Rating given by the reviewer (1-5)
+          @example 4
+        type: integer
+      review_text:
+        description: |-
+          Text content of the review
+          @example "This bananas are amazing!"
+        type: string
+      updated_at:
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /products:
+    get:
+      description: Fetches all products from the catalog
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of products
+          schema:
+            items:
+              $ref: '#/definitions/models.Product'
+            type: array
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: List all products
+      tags:
+      - products
+    post:
+      consumes:
+      - application/json
+      description: Creates a new product in the catalog
+      parameters:
+      - description: Product details
+        in: body
+        name: product
+        required: true
+        schema:
+          $ref: '#/definitions/models.Product'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Successfully created product
+          schema:
+            $ref: '#/definitions/models.Product'
+        "400":
+          description: Invalid product data
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Create a new product
+      tags:
+      - products
+  /products/{id}:
+    delete:
+      description: Deletes a product by its ID
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: Product deleted
+        "400":
+          description: Invalid product ID
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Failed to delete product
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Delete product
+      tags:
+      - products
+    get:
+      description: Fetches a product by its unique ID
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Product found
+          schema:
+            $ref: '#/definitions/models.Product'
+        "400":
+          description: Invalid product id
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Failed to retrieve product
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Get product by ID
+      tags:
+      - products
+    put:
+      consumes:
+      - application/json
+      description: Updates an existing product by its ID
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Updated product details
+        in: body
+        name: product
+        required: true
+        schema:
+          $ref: '#/definitions/models.Product'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated product
+          schema:
+            $ref: '#/definitions/models.Product'
+        "400":
+          description: Invalid product ID
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Failed to update product
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Update product
+      tags:
+      - products
+  /reviews:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new review for a product
+      parameters:
+      - description: Review details
+        in: body
+        name: review
+        required: true
+        schema:
+          $ref: '#/definitions/models.Review'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Successfully created review
+          schema:
+            $ref: '#/definitions/models.Review'
+        "400":
+          description: Invalid review data
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Create a new review
+      tags:
+      - reviews
+  /reviews/{id}:
+    delete:
+      description: Deletes a review by its ID
+      parameters:
+      - description: Review ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: Review deleted
+        "400":
+          description: Invalid review ID
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Failed to delete review
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Delete review
+      tags:
+      - reviews
+    put:
+      consumes:
+      - application/json
+      description: Updates an existing review by its ID
+      parameters:
+      - description: Review ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Updated review details
+        in: body
+        name: review
+        required: true
+        schema:
+          $ref: '#/definitions/models.Review'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated review
+          schema:
+            $ref: '#/definitions/models.Review'
+        "400":
+          description: Invalid review Data
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Failed to update review
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Update review
+      tags:
+      - reviews
+swagger: "2.0"

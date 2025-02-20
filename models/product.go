@@ -21,5 +21,6 @@ type Product struct {
 	AverageRating float64 `json:"average_rating"`
 	// Reviews associated with this product
 	// @example []Review
+	// @readOnly
 	Reviews []Review `gorm:"foreignkey:ProductID"`
 }

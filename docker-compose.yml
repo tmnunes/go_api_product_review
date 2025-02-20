@@ -11,6 +11,11 @@ services:
       - redis
     networks:
       - product-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
   
   db:
     image: postgres:latest
