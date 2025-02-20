@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"errors"
 	"go_api_product_review/cache"
 	"go_api_product_review/models"
@@ -149,8 +150,14 @@ func CreateReview(db *gorm.DB, review *models.Review) (*models.Review, error) {
 		return nil, result.Error
 	}
 
+	// Cache the new review
+	err := CacheReview(review)
+	if err != nil {
+		return nil, err
+	}
+
 	// Update the product's average rating after the review is added
-	err := UpdateProductAverageRating(db, review.ProductID)
+	err = UpdateProductAverageRating(db, review.ProductID)
 	if err != nil {
 		return nil, err
 	}
@@ -176,8 +183,13 @@ func UpdateReview(db *gorm.DB, id uint, updatedReview *models.Review) (*models.R
 
 	db.Save(&review)
 
+	err := CacheReview(&review)
+	if err != nil {
+		return nil, err
+	}
+
 	// Recalculate the product's average rating after the review is updated
-	err := UpdateProductAverageRating(db, review.ProductID)
+	err = UpdateProductAverageRating(db, review.ProductID)
 	if err != nil {
 		return nil, err
 	}
@@ -197,8 +209,13 @@ func DeleteReview(db *gorm.DB, id uint) error {
 	// Delete the review from the database
 	db.Delete(&review)
 
-	err := UpdateProductAverageRating(db, review.ProductID)
+	// Remove the review from the Redis cache
+	err := cache.Rdb.Del(cache.Ctx, "review:"+strconv.Itoa(int(id))).Err()
+	if err != nil {
+		return err
+	}
 
+	err = UpdateProductAverageRating(db, review.ProductID)
 	if err != nil {
 		return err
 	}
@@ -228,4 +245,60 @@ func GetCachedProductAverageRating(productID uint) (float64, error) {
 
 	// Convert cached rating to float64
 	return strconv.ParseFloat(cachedRating, 64)
+}
+
+// GetReview retrieves a review from the cache or database if not found in cache.
+func GetReview(db *gorm.DB, id uint) (*models.Review, error) {
+	// Check the Redis cache first
+	reviewKey := "review:" + strconv.Itoa(int(id))
+	reviewJSON, err := cache.Rdb.Get(cache.Ctx, reviewKey).Result()
+
+	if err == redis.Nil {
+		// Review not found in cache, query the database
+		var review models.Review
+		result := db.First(&review, id)
+		if result.Error != nil {
+			return nil, result.Error // Return error if not found
+		}
+
+		// Cache the new review
+		reviewJSON, err := json.Marshal(review)
+		if err != nil {
+			return nil, err
+		}
+
+		// Store the JSON string in Redis
+		err = cache.Rdb.Set(cache.Ctx, reviewKey, reviewJSON, 10*time.Minute).Err()
+		if err != nil {
+			return nil, err // Return error if Redis store fails
+		}
+	} else if err != nil {
+		return nil, err // Return error if there is a Redis issue
+	}
+
+	// Unmarshal JSON back to Review struct
+	var review models.Review
+	err = json.Unmarshal([]byte(reviewJSON), &review) // Unmarshal to struct
+	if err != nil {
+		return nil, err // Return error if unmarshaling fails
+	}
+
+	return &review, nil
+}
+
+// CacheReview updates the Redis cache with the given review.
+func CacheReview(review *models.Review) error {
+	// Marshal the review to a JSON byte slice
+	reviewJSON, err := json.Marshal(review)
+	if err != nil {
+		return err
+	}
+
+	// Update the cache with the review
+	err = cache.Rdb.Set(cache.Ctx, "review:"+strconv.Itoa(int(review.ID)), reviewJSON, 10*time.Minute).Err()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

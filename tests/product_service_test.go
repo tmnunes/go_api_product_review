@@ -2,9 +2,12 @@ package service_test_aux
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"go_api_product_review/cache"
 	"go_api_product_review/models"
 	"go_api_product_review/service"
+	"log"
 	"strconv"
 	"testing"
 	"time"
@@ -45,8 +48,31 @@ func (m *MockRedisClient) Get(ctx context.Context, key string) *redis.StringCmd 
 	if !exists {
 		return redis.NewStringResult("", redis.Nil) // Simulate cache miss
 	}
-	// Return the value as a string
-	return redis.NewStringResult(strconv.FormatFloat(value.(float64), 'f', -1, 64), nil)
+
+	// Handle different types of stored values
+	switch v := value.(type) {
+	case []byte:
+		// If the value is a byte slice, return it as a string
+		return redis.NewStringResult(string(v), nil)
+	case float64:
+		// If the value is a float64, convert it to a string
+		return redis.NewStringResult(strconv.FormatFloat(v, 'f', -1, 64), nil)
+	default:
+		// If the type is not recognized, return an empty result
+		return redis.NewStringResult("", fmt.Errorf("unsupported type: %T", v))
+	}
+}
+
+// Del simulates deleting one or more keys from Redis
+func (m *MockRedisClient) Del(ctx context.Context, keys ...string) *redis.IntCmd {
+	deletedCount := 0
+	for _, key := range keys {
+		if _, exists := m.data[key]; exists {
+			delete(m.data, key) // Remove the key from the mock data map
+			deletedCount++
+		}
+	}
+	return redis.NewIntResult(int64(deletedCount), nil) // Return the count of deleted keys
 }
 
 // setupTestDB sets up an in-memory SQLite database for testing
@@ -481,4 +507,107 @@ func TestDeleteProduct(t *testing.T) {
 	var deletedProduct models.Product
 	result := db.First(&deletedProduct, product.ID)
 	assert.Error(t, result.Error) // Should result in an error as the product was deleted
+}
+
+// TestCacheReview tests the caching of a review in Redis
+func TestCacheReview(t *testing.T) {
+	// Create a mocked Redis client
+	mockClient := NewMockRedisClient()
+	cache.InitRedis(mockClient) // Initialize cache with the mock client
+
+	// Create a sample review to cache
+	review := &models.Review{
+		Model:      gorm.Model{ID: 1},
+		FirstName:  "Ana",
+		LastName:   "Top",
+		ReviewText: "experience",
+		Rating:     5,
+		ProductID:  1001,
+	}
+
+	// Call the function to cache the review
+	err := service.CacheReview(review)
+	assert.NoError(t, err)
+
+	// Verify if the value was correctly stored in the mocked Redis
+	key := "review:" + strconv.Itoa(int(review.ID))
+	cachedReviewData, exists := mockClient.data[key]
+	assert.True(t, exists, "Expected review to be cached")
+
+	// Unmarshal the cached review to check its contents
+	var cachedReview models.Review
+	err = json.Unmarshal(cachedReviewData.([]byte), &cachedReview)
+	assert.NoError(t, err)
+
+	// Verify the contents of the cached review
+	assert.Equal(t, review.FirstName, cachedReview.FirstName)
+	assert.Equal(t, review.LastName, cachedReview.LastName)
+	assert.Equal(t, review.ReviewText, cachedReview.ReviewText)
+	assert.Equal(t, review.Rating, cachedReview.Rating)
+	assert.Equal(t, review.ProductID, cachedReview.ProductID)
+}
+
+// TestGetReview tests retrieving a review from Redis cache or database
+func TestGetReview(t *testing.T) {
+	// Create a mocked Redis client
+	mockClient := NewMockRedisClient()
+	cache.InitRedis(mockClient) // Initialize cache with the mock client
+
+	db, err := gorm.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatalf("Error connecting to in-memory database: %v", err)
+	}
+	defer db.Close()
+
+	// Create the necessary table in the database
+	db.AutoMigrate(&models.Review{})
+
+	// Create a sample review and save it to the mock database
+	review := &models.Review{
+		Model:      gorm.Model{ID: 1},
+		FirstName:  "Ana",
+		LastName:   "Top",
+		ReviewText: "experience",
+		Rating:     5,
+		ProductID:  1001,
+	}
+	db.Create(review)
+
+	reviewID := uint(1)
+
+	// Simulate a cache hit by storing the rating in the mock
+	key := "review:" + strconv.Itoa(int(reviewID))
+	reviewJSON, err := json.Marshal(review)
+	if err != nil {
+		log.Println(err)
+	}
+
+	mockClient.data[key] = reviewJSON
+
+	// Call the function to get the review
+	retrievedReview, err := service.GetReview(db, reviewID)
+	assert.NoError(t, err)
+	assert.NotNil(t, retrievedReview)
+
+	// Verify the retrieved review matches the original
+	assert.Equal(t, review.FirstName, retrievedReview.FirstName)
+	assert.Equal(t, review.LastName, retrievedReview.LastName)
+	assert.Equal(t, review.ReviewText, retrievedReview.ReviewText)
+	assert.Equal(t, review.Rating, retrievedReview.Rating)
+	assert.Equal(t, review.ProductID, retrievedReview.ProductID)
+
+	cachedReviewData, exists := mockClient.data[key]
+	assert.True(t, exists, "Expected review to be cached")
+
+	// Unmarshal the cached review to check its contents
+	var cachedReview models.Review
+	err = json.Unmarshal(cachedReviewData.([]byte), &cachedReview)
+	assert.NoError(t, err)
+
+	// Verify the contents of the cached review
+	assert.Equal(t, review.FirstName, cachedReview.FirstName)
+	assert.Equal(t, review.LastName, cachedReview.LastName)
+	assert.Equal(t, review.ReviewText, cachedReview.ReviewText)
+	assert.Equal(t, review.Rating, cachedReview.Rating)
+	assert.Equal(t, review.ProductID, cachedReview.ProductID)
 }

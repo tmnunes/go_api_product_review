@@ -14,6 +14,7 @@ type RedisClient interface {
 	Ping(ctx context.Context) *redis.StatusCmd
 	Set(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.StatusCmd
 	Get(ctx context.Context, key string) *redis.StringCmd
+	Del(ctx context.Context, keys ...string) *redis.IntCmd
 }
 
 // Rdb is the global Redis client instance.
