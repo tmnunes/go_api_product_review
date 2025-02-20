@@ -1,22 +1,5 @@
 version: '3.8'
-services:
-  product_review_service:
-    build: .
-    ports:
-      - "8080:8080"
-    env_file:
-      - .env
-    depends_on:
-      - db
-      - redis
-    networks:
-      - product-network
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-  
+services:  
   db:
     image: postgres:latest
     environment:
@@ -27,14 +10,45 @@ services:
       - "5432:5432"
     networks:
       - product-network
-  
+    volumes:
+      - pgdata:/var/lib/postgresql/data
   redis:
     image: redis:latest
     ports:
       - "6379:6379"
     networks:
       - product-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+      timeout: 5s
+  product_review_service:
+    build: .
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    depends_on:
+      db: 
+        condition: service_started
+      redis:
+        condition: service_healthy
+    networks:
+      - product-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      DATABASE_URL: postgresql://user:password@db:5432/product_reviews
+      REDIS_URL: redis://redis:6379
 
 networks:
   product-network:
     driver: bridge
+
+volumes:
+  pgdata:
