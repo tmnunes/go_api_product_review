@@ -1,4 +1,4 @@
-package service_test_aux
+package servicetester
 
 import (
 	"context"
