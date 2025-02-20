@@ -52,6 +52,15 @@ func CreateProduct(c *gin.Context) {
 		return
 	}
 
+	// Validate using the model's method
+	if err := product.Validate(); err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Message: "Invalid product data",
+			Details: err.Error(),
+		})
+		return
+	}
+
 	createdProduct, err := service.CreateProduct(db.GetDB(), &product)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
@@ -145,6 +154,15 @@ func UpdateProduct(c *gin.Context) {
 	productID := uint(id)
 	var product models.Product
 	if err := c.ShouldBindJSON(&product); err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Message: "Invalid product data",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	// Validate using the model's method
+	if err := product.Validate(); err != nil {
 		c.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Message: "Invalid product data",
 			Details: err.Error(),
@@ -277,6 +295,15 @@ func UpdateReview(c *gin.Context) {
 
 	var review models.Review
 	if err := c.ShouldBindJSON(&review); err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Message: "Invalid review data",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	// Validate using the model's method
+	if err := review.Validate(); err != nil {
 		c.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Message: "Invalid review data",
 			Details: err.Error(),
